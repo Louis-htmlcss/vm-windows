@@ -1,0 +1,48 @@
+name: Launch High-Performance VM and Display Server URL
+
+on:
+  workflow_dispatch:
+
+jobs:
+  launch-vm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install VirtualBox
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y virtualbox
+
+      - name: Import OVA and configure VM
+        run: |
+          VM_NAME="HighPerformanceVM"
+          OVA_FILE="file.ova"
+          VBoxManage import $OVA_FILE --vsys 0 --vmname $VM_NAME
+          
+          # Optimize VM settings for performance
+          VBoxManage modifyvm $VM_NAME --cpus 4
+          VBoxManage modifyvm $VM_NAME --memory 8192
+          VBoxManage modifyvm $VM_NAME --vram 128
+          VBoxManage modifyvm $VM_NAME --accelerate3d on
+          VBoxManage modifyvm $VM_NAME --ioapic on
+          VBoxManage modifyvm $VM_NAME --hwvirtex on
+          VBoxManage modifyvm $VM_NAME --nestedpaging on
+          VBoxManage modifyvm $VM_NAME --largepages on
+          
+          # Start the VM
+          VBoxManage startvm $VM_NAME --type headless
+
+      - name: Get public IP and display server URL
+        run: |
+          PUBLIC_IP=$(curl -s https://api.ipify.org)
+          echo "Server URL: http://$PUBLIC_IP"
+
+      - name: Keep the workflow running
+        run: |
+          echo "High-performance VM is running. Server URL: http://$PUBLIC_IP"
+          while true; do
+            sleep 300
+            VBoxManage list runningvms | grep "$VM_NAME" > /dev/null 2>&1 || exit 1
+          done
